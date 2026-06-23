@@ -499,13 +499,26 @@ window.addEventListener('load', () => {
   addSynergyEdges();
 
   // Events
-  cy.on('tap', 'node', e => {
-    const id = e.target.id();
+  cy.on('tap', 'node', function(e) {
+
+    const node = e.target;
+    const id = node.id();
+
     const d = DATA[id];
+
     if (!d) return;
+
+
+    // Primero expandir si es un pilar
+    if (d.type === 'root') {
+        toggleChildren(id);
+    }
+
+
+    // Después abrir información
     openModal(d);
-    if (d.type === 'root') toggleChildren(id);
-  });
+
+});
 
   cy.on('mouseover', 'node', e => {
     const d = DATA[e.target.id()];
@@ -682,9 +695,24 @@ function expandRoot(rootId) {
     const node = cy.getElementById(cId);
     const edge = cy.getElementById(`pe_${rootId}_${cId}`);
     node.removeClass('hidden');
-    edge.removeClass('hidden');
-    // animate into position
-    node.animate({ position:{ x, y } }, { duration: 350, easing:'ease-out-cubic' });
+edge.removeClass('hidden');
+
+node.position({
+    x:pPos.x,
+    y:pPos.y
+});
+
+setTimeout(()=>{
+    node.animate({
+        position:{
+            x:x,
+            y:y
+        }
+    },{
+        duration:350,
+        easing:'ease-out-cubic'
+    });
+},20);
   });
 }
 
