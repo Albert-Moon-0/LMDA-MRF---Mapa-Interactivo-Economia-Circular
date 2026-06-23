@@ -799,31 +799,7 @@ function secTitle(txt) {
   s.textContent = txt; return s;
 }
 
-// 1. Asegúrate de que los nodos hijos estén ocultos al iniciar
-cy.nodes('[?parent]').hide(); 
 
-// 2. Evento de clic mejorado
-cy.on('tap', 'node', function(evt) {
-    var node = evt.target;
-    
-    // Si el nodo tiene hijos, los mostramos
-    var children = node.successors();
-    
-    if (children.length > 0) {
-        // Hacemos visibles a los hijos
-        children.show();
-        
-        // RECALCULAMOS EL LAYOUT para que los hijos se acomoden
-        cy.layout({
-            name: 'cose',
-            animate: true,
-            animationDuration: 500
-        }).run();
-    }
-    
-    // 3. Abrimos el modal con la información
-    abrirModal(node.data());
-});
 </script>
 </body>
 </html>
