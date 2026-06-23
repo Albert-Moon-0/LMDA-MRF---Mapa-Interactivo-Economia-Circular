@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapa Interactivo: Economía Circular · Cloud Computing · IA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+  <style>
+    :root {
+      --green:   #22c55e;
+      --green-d: #16a34a;
+      --green-s: #dcfce7;
+      --blue:    #3b82f6;
+      --blue-d:  #1d4ed8;
+      --blue-s:  #dbeafe;
+      --orange:  #f97316;
+      --orange-d:#ea580c;
+      --orange-s:#ffedd5;
+      --purple:  #a855f7;
+      --purple-d:#7c3aed;
+      --purple-s:#f3e8ff;
+      --bg:      #0a0f1e;
+      --bg2:     #111827;
+      --bg3:     #1f2937;
+      --text:    #f1f5f9;
+      --muted:   #94a3b8;
+      --border:  #1e293b;
+      --font-h:  'Space Grotesk', sans-serif;
+      --font-b:  'Inter', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-b);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 24px;
+      background: rgba(17,24,39,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      z-index: 10;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .header-title {
+      font-family: var(--font-h);
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--green) 0%, var(--blue) 50%, var(--purple) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      white-space: nowrap;
+    }
+    .header-subtitle {
+      font-size: 0.7rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      color: var(--text);
+      font-family: var(--font-b);
+      font-size: 0.72rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.18s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn:hover { background: var(--bg2); border-color: var(--blue); color: var(--blue); }
+    .btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .btn-icon { font-size: 0.9rem; }
+
+    /* ── MAIN LAYOUT ── */
+    .workspace {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      position: relative;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 240px;
+      flex-shrink: 0;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .sidebar-section h3 {
+      font-family: var(--font-h);
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .pillar-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      background: var(--bg3);
+      cursor: pointer;
+      margin-bottom: 6px;
+      transition: all 0.2s;
+      width: 100%;
+      text-align: left;
+    }
+    .pillar-btn:hover { border-color: currentColor; transform: translateX(2px); }
+    .pillar-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .pillar-btn span {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.3;
+    }
+    .pillar-count {
+      margin-left: auto;
+      font-size: 0.65rem;
+      color: var(--muted);
+      background: var(--bg);
+      border-radius: 999px;
+      padding: 1px 6px;
+    }
+
+    /* ── INFO PANEL ── */
+    .info-panel {
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.6;
+      background: var(--bg3);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .info-panel strong { color: var(--text); display: block; margin-bottom: 4px; font-size: 0.73rem; }
+
+    /* ── GRAPH ── */
+    #cy {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      background: radial-gradient(ellipse at 50% 40%, #0e1a2e 0%, var(--bg) 70%);
+      position: relative;
+    }
+
+    /* ── LEGEND ── */
+    .legend {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      background: rgba(17,24,39,0.92);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 0.7rem;
+      z-index: 5;
+      min-width: 170px;
+    }
+    .legend h4 {
+      font-family: var(--font-h);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+      color: var(--text);
+    }
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .legend-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+    .legend-edge {
+      height: 3px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.3);
+      width: 28px;
+      flex-shrink: 0;
+    }
+    .legend-edge.strong { background: #a78bfa; height: 4px; }
+    .legend-edge.medium { background: #60a5fa; height: 3px; }
+    .legend-edge.light  { background: #6ee7b7; height: 2px; }
+
+    /* ── ZOOM ── */
+    .zoom-controls {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 5;
+    }
+    .zoom-btn {
+      width: 34px; height: 34px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(17,24,39,0.9);
+      color: var(--text);
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.18s;
+    }
+    .zoom-btn:hover { background: var(--bg3); }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      max-width: 580px;
+      width: 100%;
+      max-height: 88vh;
+      overflow-y: auto;
+      animation: modal-in 0.22s ease;
+    }
+    @keyframes modal-in {
+      from { opacity: 0; transform: translateY(16px) scale(0.97); }
+      to   { opacity: 1; transform: none; }
+    }
+    .modal-header {
+      padding: 24px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .modal-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+      flex-shrink: 0;
+    }
+    .modal-meta { flex: 1; min-width: 0; }
+    .modal-tag {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      border-radius: 999px;
+      padding: 2px 10px;
+      display: inline-block;
+      margin-bottom: 4px;
+    }
+    .modal-title {
+      font-family: var(--font-h);
+      font-size: 1.15rem;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+    .modal-close {
+      background: none; border: none; color: var(--muted);
+      font-size: 1.4rem; cursor: pointer; padding: 2px 6px;
+      border-radius: 6px; line-height: 1; flex-shrink: 0;
+      transition: color 0.15s;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 20px 24px 24px; }
+    .modal-desc {
+      font-size: 0.83rem;
+      color: #cbd5e1;
+      line-height: 1.7;
+      margin-bottom: 18px;
+    }
+    .modal-section-title {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      margin-top: 16px;
+    }
+    .modal-tags-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .chip {
+      font-size: 0.72rem;
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid;
+      font-weight: 500;
+    }
+    .modal-cases {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .case-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+    .case-card-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+    .case-logo {
+      font-size: 1.1rem;
+    }
+    .case-name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .case-year {
+      margin-left: auto;
+      font-size: 0.65rem;
+      color: var(--muted);
+      background: var(--bg);
+      padding: 1px 8px;
+      border-radius: 999px;
+    }
+    .case-desc {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      line-height: 1.55;
+    }
+    .case-impact {
+      margin-top: 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .case-link {
+      margin-top: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.7rem;
+      text-decoration: none;
+      font-weight: 500;
+      opacity: 0.85;
+      transition: opacity 0.15s;
+    }
+    .case-link:hover { opacity: 1; text-decoration: underline; }
+    .modal-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .stat-box {
+      background: var(--bg3);
+      border-radius: 10px;
+      padding: 10px 12px;
+      text-align: center;
+    }
+    .stat-number {
+      font-family: var(--font-h);
+      font-size: 1.3rem;
+      font-weight: 700;
+      display: block;
+    }
+    .stat-label {
+      font-size: 0.65rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    /* ── TOOLTIP ── */
+    #tooltip {
+      position: fixed;
+      background: rgba(17,24,39,0.95);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.73rem;
+      pointer-events: none;
+      z-index: 50;
+      opacity: 0;
+      transition: opacity 0.15s;
+      max-width: 220px;
+      line-height: 1.4;
+    }
+    #tooltip.show { opacity: 1; }
+
+    /* ── LOADING ── */
+    .loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 20;
+      background: var(--bg);
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading p { font-size: 0.8rem; color: var(--muted); }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+    @media (max-width: 680px) {
+      .sidebar { display: none; }
+      .header-subtitle { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div>
+    <div class="header-title">Tecnología Sostenible · Mapa de Interrelaciones</div>
+    <div class="header-subtitle">Economía Circular × Cloud Computing × Inteligencia Artificial · 2020–2025</div>
+  </div>
+  <div class="controls">
+    <button class="btn" id="btn-expand" onclick="expandAll()">
+      <span class="btn-icon">⊕</span> Expandir todo
+    </button>
+    <button class="btn" id="btn-collapse" onclick="collapseAll()">
+      <span class="btn-icon">⊖</span> Colapsar
+    </button>
+    <button class="btn" id="btn-fit" onclick="fitGraph()">
+      <span class="btn-icon">⤢</span> Ajustar
+    </button>
+    <button class="btn" id="btn-synergies" onclick="toggleSynergies()">
+      <span class="btn-icon">⚡</span> Sinergias
+    </button>
+  </div>
+</header>
+
+<!-- WORKSPACE -->
+<div class="workspace">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <h3>Pilares Tecnológicos</h3>
+      <button class="pillar-btn" style="color:#22c55e" onclick="focusPillar('ec')">
+        <span class="pillar-dot" style="background:#22c55e"></span>
+        <span>Economía Circular</span>
+        <span class="pillar-count">8</span>
+      </button>
+      <button class="pillar-btn" style="color:#3b82f6" onclick="focusPillar('cc')">
+        <span class="pillar-dot" style="background:#3b82f6"></span>
+        <span>Cloud Computing</span>
+        <span class="pillar-count">8</span>
+      </button>
+      <button class="pillar-btn" style="color:#f97316" onclick="focusPillar('ai')">
+        <span class="pillar-dot" style="background:#f97316"></span>
+        <span>IA para Sustentabilidad</span>
+        <span class="pillar-count">8</span>
+      </button>
+      <button class="pillar-btn" style="color:#a855f7" onclick="focusPillar('sy')">
+        <span class="pillar-dot" style="background:#a855f7"></span>
+        <span>Integración y Sinergias</span>
+        <span class="pillar-count">8</span>
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Instrucciones</h3>
+      <div class="info-panel">
+        <strong>🖱 Cómo navegar</strong>
+        • Haz <b>clic</b> en un nodo para ver sus detalles<br>
+        • Haz <b>doble clic</b> en un pilar para expandirlo<br>
+        • <b>Arrastra</b> para mover el mapa<br>
+        • <b>Scroll</b> para hacer zoom<br>
+        • Usa los botones de arriba para acciones globales
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Métricas Clave</h3>
+      <div class="info-panel">
+        <strong>📊 Impacto Global</strong>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:0.68rem;margin-bottom:3px">
+              <span>Reducción CO₂ (Cloud Verde)</span><span style="color:#22c55e">↓ 67%</span>
+            </div>
+            <div style="height:4px;border-radius:99px;background:var(--bg)">
+              <div style="width:67%;height:100%;background:#22c55e;border-radius:99px"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:0.68rem;margin-bottom:3px">
+              <span>Eficiencia IA (DeepMind)</span><span style="color:#f97316">↓ 40%</span>
+            </div>
+            <div style="height:4px;border-radius:99px;background:var(--bg)">
+              <div style="width:40%;height:100%;background:#f97316;border-radius:99px"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:0.68rem;margin-bottom:3px">
+              <span>Materiales reciclados (EC)</span><span style="color:#a855f7">↑ 85%</span>
+            </div>
+            <div style="height:4px;border-radius:99px;background:var(--bg)">
+              <div style="width:85%;height:100%;background:#a855f7;border-radius:99px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- GRAPH CONTAINER -->
+  <div style="position:relative;flex:1;min-width:0">
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Construyendo el mapa interactivo…</p>
+    </div>
+    <div id="cy"></div>
+
+    <!-- LEGEND -->
+    <div class="legend">
+      <h4>Leyenda</h4>
+      <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Economía Circular</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Cloud Computing</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div>IA Sustentable</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div>Integración / Sinergias</div>
+      <div class="legend-line">
+        <div class="legend-edge strong"></div><span style="font-size:0.68rem;color:var(--muted)">Sinergia fuerte</span>
+      </div>
+      <div class="legend-line" style="margin-top:4px;padding-top:0;border-top:none">
+        <div class="legend-edge medium"></div><span style="font-size:0.68rem;color:var(--muted)">Sinergia media</span>
+      </div>
+      <div class="legend-line" style="margin-top:4px;padding-top:0;border-top:none">
+        <div class="legend-edge light"></div><span style="font-size:0.68rem;color:var(--muted)">Relación base</span>
+      </div>
+    </div>
+
+    <!-- ZOOM -->
+    <div class="zoom-controls">
+      <button class="zoom-btn" onclick="cy.zoom(cy.zoom()*1.2)">+</button>
+      <button class="zoom-btn" onclick="cy.zoom(cy.zoom()*0.8)">−</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOOLTIP -->
+<div id="tooltip"></div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalIfOverlay(event)">
+  <div class="modal" id="modal">
+    <div class="modal-header" id="modal-header">
+      <div class="modal-icon" id="modal-icon"></div>
+      <div class="modal-meta">
+        <div class="modal-tag" id="modal-tag"></div>
+        <div class="modal-title" id="modal-title"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  DATA
+// ─────────────────────────────────────────────
+const NODES_DATA = {
+
+  // ═══ PILARES PRINCIPALES ═══
+  root_ec: {
+    label: 'Economía\nCircular', pillar: 'ec', type: 'root', emoji: '♻️',
+    color: '#22c55e', bg: '#052e16',
+    tag: 'Pilar 1 · Economía Circular', tagColor: '#22c55e', tagBg: '#052e16',
+    desc: 'La Economía Circular es un modelo de producción y consumo que implica compartir, arrendar, reutilizar, reparar, renovar y reciclar materiales y productos existentes el mayor tiempo posible. Frente al modelo lineal "tomar-hacer-desperdiciar", la EC cierra los ciclos de los materiales y la energía, minimizando los residuos y el impacto ambiental.',
+    concepts: ['Principios 9R (Rechazar → Reciclar)', 'Diseño modular y para el desmontaje', 'Pasaportes digitales de producto', 'Servitización (Product-as-a-Service)', 'Metabolismo urbano', 'Simbiosis industrial'],
+    stats: [{ n: '9R', l: 'Principios base' }, { n: '45%', l: 'Reducción residuos potencial' }, { n: '$4.5T', l: 'Oportunidad global anual' }],
+    cases: [
+      { logo: '🖥️', name: 'Framework Laptop', year: '2021–2025', desc: 'Laptop completamente modular y reparable por el usuario. Cada componente es reemplazable individualmente, extendiendo la vida útil a más de 10 años.', impact: '↑ 80% menos residuos electrónicos', color: '#22c55e', url: 'https://frame.work' },
+      { logo: '📱', name: 'Fairphone 5', year: '2023', desc: 'Smartphone diseñado con 10 módulos reparables, 70% de materiales reciclados o de comercio justo y certificación B-Corp.', impact: '10 años de soporte garantizado', color: '#22c55e', url: 'https://www.fairphone.com' }
+    ]
+  },
+  root_cc: {
+    label: 'Cloud\nComputing', pillar: 'cc', type: 'root', emoji: '☁️',
+    color: '#3b82f6', bg: '#0c1a3a',
+    tag: 'Pilar 2 · Cloud Computing', tagColor: '#3b82f6', tagBg: '#0c1a3a',
+    desc: 'El Cloud Computing sostenible optimiza centros de datos para reducir el consumo energético y la huella de carbono, mientras escala servicios globales. Incorpora métricas de eficiencia como PUE y WUE, energía renovable y nuevas arquitecturas como serverless y edge computing que acercan el cómputo a los datos.',
+    concepts: ['PUE (Power Usage Effectiveness)', 'WUE (Water Usage Effectiveness)', 'Carbon-aware computing', 'Serverless & FaaS', 'Edge Computing', 'Inmersión líquida y refrigeración'],
+    stats: [{ n: '1.12', l: 'PUE mínimo Google 2024' }, { n: '100%', l: 'Energía renovable AWS 2025' }, { n: '67%', l: 'Menos emisiones vs on-premise' }],
+    cases: [
+      { logo: '🔵', name: 'Google Cloud Carbon-Free', year: '2020–2025', desc: 'Operaciones 24/7 libres de carbono en más de 200 regiones. Google alcanzó un PUE global de 1.12, record de la industria. Carbon Intelligence enruta carga a zonas con más energía limpia.', impact: '↓ 67% emisiones vs promedio industria', color: '#3b82f6', url: 'https://cloud.google.com/sustainability' },
+      { logo: '🌊', name: 'Microsoft Project Natick', year: '2020', desc: 'Data center submarino autosustentable con refrigeración oceánica pasiva. 8 veces más confiable que centros terrestres, con 99.9999% de disponibilidad.', impact: 'Zero consumo de agua dulce', color: '#3b82f6', url: 'https://natick.research.microsoft.com' }
+    ]
+  },
+  root_ai: {
+    label: 'IA para la\nSustentabilidad', pillar: 'ai', type: 'root', emoji: '🤖',
+    color: '#f97316', bg: '#2a0d00',
+    tag: 'Pilar 3 · IA Sustentable', tagColor: '#f97316', tagBg: '#2a0d00',
+    desc: 'La Inteligencia Artificial aplicada a la sustentabilidad optimiza sistemas complejos que ningún humano podría gestionar manualmente. Desde la clasificación de residuos hasta la gestión de redes eléctricas, la IA multiplica el impacto de las decisiones circulares y reduce el consumo energético de operaciones críticas.',
+    concepts: ['TinyML (ML en dispositivos edge)', 'Cuantización de modelos', 'Mantenimiento predictivo', 'Computer Vision para residuos', 'Optimización de rutas logísticas', 'Redes neuronales para energía'],
+    stats: [{ n: '40%', l: 'Reducción cooling DeepMind' }, { n: '95%', l: 'Precisión AMP Robotics' }, { n: '15%', l: 'Ahorro fertilizantes IA' }],
+    cases: [
+      { logo: '🧠', name: 'Google DeepMind Cooling', year: '2021', desc: 'AlphaFold aplicado a sistemas de refrigeración de data centers de Google. IA controla más de 120 variables en tiempo real reduciendo el uso energético del sistema de cooling en 40%.', impact: '↓ 40% consumo energético cooling', color: '#f97316', url: 'https://deepmind.google/discover/blog/deepmind-ai-reduces-google-data-centre-cooling-bill-by-40/' },
+      { logo: '♻️', name: 'AMP Robotics', year: '2020–2024', desc: 'Robots con visión computacional clasifican residuos reciclables con 95% de precisión a 80 objetos/min. Opera en 50+ instalaciones en EE.UU., Europa y Asia.', impact: '↑ 95% precisión clasificación residuos', color: '#f97316', url: 'https://www.amprobotics.com' }
+    ]
+  },
+  root_sy: {
+    label: 'Integración\ny Sinergias', pillar: 'sy', type: 'root', emoji: '⚡',
+    color: '#a855f7', bg: '#1e0a3a',
+    tag: 'Pilar 4 · Sinergias', tagColor: '#a855f7', tagBg: '#1e0a3a',
+    desc: 'La convergencia entre Economía Circular, Cloud e IA genera sinergias exponenciales. La trazabilidad blockchain, la computación cuántica para logística, y las plataformas industriales unificadas representan el frente más innovador de la tecnología sostenible, creando sistemas circulares completamente digitalizados.',
+    concepts: ['IoT + Blockchain para trazabilidad', '5G + Edge (latencia <1ms)', 'Computación cuántica logística', 'Gemelos digitales circulares', 'Plataformas industriales abiertas', 'Pasaportes digitales de producto'],
+    stats: [{ n: '5ms', l: 'Latencia 5G + Edge' }, { n: '100%', l: 'Trazabilidad blockchain' }, { n: '∞', l: 'Potencial cuántico' }],
+    cases: [
+      { logo: '🏢', name: 'Microsoft Circular Center', year: '2021', desc: 'Hub en Amsterdam que remanufactura y reutiliza servidores y hardware de data centers. Combina IA para diagnóstico, Cloud para gestión y principios EC para prolongar vida útil hasta 6 años adicionales.', impact: '↑ 90% componentes reutilizados', color: '#a855f7', url: 'https://blogs.microsoft.com/on-the-issues/2021/08/31/microsoft-circular-centers-cloud/' },
+      { logo: '🚚', name: 'DHL Logística Cuántica', year: '2023–2025', desc: 'Algoritmos cuánticos de D-Wave optimizan rutas para 1,500+ vehículos de reparto. Primeros pilotos muestran reducción de distancia total del 12% y 20% menos emisiones.', impact: '↓ 12% km recorridos · ↓ 20% CO₂', color: '#a855f7', url: 'https://www.dhl.com/global-en/delivered/digitalization/quantum-computing.html' }
+    ]
+  },
+
+  // ═══ NODOS HIJO — ECONOMÍA CIRCULAR ═══
+  ec_diseno: {
+    label: 'Diseño\nModular', pillar: 'ec', type: 'child', emoji: '🔧', parent: 'root_ec',
+    color: '#22c55e', bg: '#052e16',
+    tag: 'Economía Circular · Concepto', tagColor: '#22c55e', tagBg: '#052e16',
+    desc: 'El diseño modular permite que un producto sea desmontado en sus componentes al final de su vida útil, facilitando la reparación, actualización y reciclaje de cada parte de forma independiente. Elimina la obsolescencia programada y maximiza la recuperación de materiales valiosos.',
+    concepts: ['Diseño para el desmontaje (DfD)', 'Interfaces estándar entre módulos', 'Materiales compatibles con reciclaje', 'Documentación técnica abierta', 'Actualización por componente'],
+    stats: [{ n: '10+', l: 'Años vida útil' }, { n: '80%', l: 'Menos residuos' }, { n: '↓60%', l: 'Costo reparación' }],
+    cases: [
+      { logo: '🖥️', name: 'Framework Laptop 16', year: '2023', desc: 'Primer laptop gaming modular. 17 módulos reemplazables, GPU intercambiable. Disponible en aluminio reciclado al 50%.', impact: 'GPU actualizable sin cambiar laptop', color: '#22c55e', url: 'https://frame.work/laptop16' }
+    ]
+  },
+  ec_9r: {
+    label: 'Principios\n9R', pillar: 'ec', type: 'child', emoji: '🔄', parent: 'root_ec',
+    color: '#22c55e', bg: '#052e16',
+    tag: 'Economía Circular · Marco Conceptual', tagColor: '#22c55e', tagBg: '#052e16',
+    desc: 'Los principios 9R representan la jerarquía de estrategias de circularidad, ordenadas de mayor a menor impacto ambiental: Rechazar, Reducir, Reusar, Reparar, Renovar, Remanufacturar, Reproponer, Reciclar y Recuperar energía. Cuanto más alto en la jerarquía, mayor valor se retiene en el sistema.',
+    concepts: ['R1: Rechazar (mayor impacto)', 'R2: Reducir materiales', 'R3: Reusar productos', 'R4: Reparar componentes', 'R5–R7: Renovar/Remanufacturar', 'R8–R9: Reciclar/Recuperar'],
+    stats: [{ n: '9', l: 'Estrategias circulares' }, { n: 'R1>R9', l: 'Jerarquía de impacto' }, { n: '4x', l: 'Más valor que reciclar' }],
+    cases: [
+      { logo: '🍎', name: 'Apple Robot Daisy', year: '2022', desc: 'Robot de desmontaje de iPhones que recupera 14 minerales a través de R7 (remanufactura) y R8 (reciclaje). Procesa 23 modelos distintos de iPhone a 23 dispositivos/hora.', impact: '↑ 29% recuperación cobalto', color: '#22c55e', url: 'https://www.apple.com/environment/daisy/' }
+    ]
+  },
+  ec_pasaporte: {
+    label: 'Pasaportes\nDigitales', pillar: 'ec', type: 'child', emoji: '📋', parent: 'root_ec',
+    color: '#22c55e', bg: '#052e16',
+    tag: 'Economía Circular · Tecnología', tagColor: '#22c55e', tagBg: '#052e16',
+    desc: 'El Pasaporte Digital de Producto (DPP) es un registro electrónico que almacena todos los datos de un producto a lo largo de su ciclo de vida: materiales, componentes, reparaciones, actualizaciones y destino al final de vida. Obligatorio en la UE para varios sectores desde 2025–2030.',
+    concepts: ['Blockchain para integridad de datos', 'QR / RFID / NFC de acceso', 'Datos de materiales y huella de carbono', 'Historial de reparaciones', 'Instrucciones de desmontaje', 'Regulación EU ESPR (2024)'],
+    stats: [{ n: '2025', l: 'Obligatorio baterías EU' }, { n: '2030', l: 'Obligatorio textiles EU' }, { n: '100%', l: 'Trazabilidad ciclo de vida' }],
+    cases: [
+      { logo: '🔋', name: 'EU Battery Passport', year: '2023–2025', desc: 'Regulación EU 2023/1542: todas las baterías EV vendidas en Europa desde julio 2025 deben incluir pasaporte digital con composición química, huella de carbono y origen de materiales.', impact: 'Primer estándar industrial obligatorio', color: '#22c55e', url: 'https://single-market-economy.ec.europa.eu/industry/sustainability/battery-passport_en' }
+    ]
+  },
+  ec_paas: {
+    label: 'Product-as-\na-Service', pillar: 'ec', type: 'child', emoji: '🔑', parent: 'root_ec',
+    color: '#22c55e', bg: '#052e16',
+    tag: 'Economía Circular · Modelo de Negocio', tagColor: '#22c55e', tagBg: '#052e16',
+    desc: 'La servitización transforma los productos en servicios: el fabricante retiene la propiedad del bien y el cliente paga por su uso o resultado. Esto alinea los incentivos del fabricante con la durabilidad y la circularidad, ya que recuperar el producto intacto es económicamente ventajoso.',
+    concepts: ['Pago por uso (Pay-per-use)', 'Mantenimiento incluido', 'Fabricante retiene propiedad', 'Incentivo a la durabilidad', 'Recuperación garantizada al final', 'IoT para monitoreo de uso'],
+    stats: [{ n: '$750B', l: 'Mercado PaaS 2025' }, { n: '3x', l: 'Mayor retención de materiales' }, { n: '↑40%', l: 'Ingresos recurrentes' }],
+    cases: [
+      { logo: '💡', name: 'Philips Light-as-a-Service', year: '2020–2025', desc: 'Philips instala, mantiene y recupera sistemas de iluminación LED. Schiphol Airport paga por lux, no por bombillas. Recuperación del 100% de materiales al final de vida.', impact: '50% menos energía · 100% recuperación', color: '#22c55e', url: 'https://www.signify.com/circular' }
+    ]
+  },
+
+  // ═══ NODOS HIJO — CLOUD COMPUTING ═══
+  cc_pue: {
+    label: 'PUE / WUE\nEficiencia', pillar: 'cc', type: 'child', emoji: '📊', parent: 'root_cc',
+    color: '#3b82f6', bg: '#0c1a3a',
+    tag: 'Cloud Computing · Métricas', tagColor: '#3b82f6', tagBg: '#0c1a3a',
+    desc: 'El PUE (Power Usage Effectiveness) mide la eficiencia energética de un data center: PUE=1.0 significa eficiencia perfecta. El WUE (Water Usage Effectiveness) mide litros de agua por kWh de TI. Ambas métricas son fundamentales para el diseño de infraestructura verde.',
+    concepts: ['PUE = Energía Total / Energía TI', 'WUE = Agua anual / Energía TI', 'PUE ideal: 1.0 · Promedio industria: 1.55', 'Refrigeración líquida directa', 'Free cooling por aire exterior', 'Certificación Tier IV Green'],
+    stats: [{ n: '1.12', l: 'PUE Google (record)' }, { n: '1.55', l: 'Promedio industria' }, { n: '1.03', l: 'PUE Meta Luleå' }],
+    cases: [
+      { logo: '🔵', name: 'Google Data Center Eficiencia', year: '2020–2024', desc: 'Google redujo su PUE global de 1.19 (2010) a 1.12 (2024) mediante IA de DeepMind, refrigeración por agua de mar en Finlandia y free cooling en centros europeos.', impact: 'PUE 1.12 · Ahorro $1B+ en energía', color: '#3b82f6', url: 'https://www.google.com/about/datacenters/efficiency/' }
+    ]
+  },
+  cc_serverless: {
+    label: 'Serverless\n& Edge', pillar: 'cc', type: 'child', emoji: '⚙️', parent: 'root_cc',
+    color: '#3b82f6', bg: '#0c1a3a',
+    tag: 'Cloud Computing · Arquitectura', tagColor: '#3b82f6', tagBg: '#0c1a3a',
+    desc: 'Serverless elimina los servidores ociosos: los recursos solo se consumen cuando el código se ejecuta. Edge Computing acerca el cómputo a los datos, reduciendo la transferencia de datos y la latencia. Juntos reducen el consumo energético hasta un 80% comparado con arquitecturas tradicionales.',
+    concepts: ['FaaS (Function-as-a-Service)', 'Cold start y warm start', 'CDN + Edge (Cloudflare Workers)', 'Reducción de transferencia de datos', 'Auto-escalado instantáneo', 'Green by design'],
+    stats: [{ n: '↓80%', l: 'Energía vs VM tradicional' }, { n: '<50ms', l: 'Latencia Edge global' }, { n: '0', l: 'Servidores ociosos' }],
+    cases: [
+      { logo: '🌐', name: 'Cloudflare Workers Green', year: '2022', desc: 'Red de 320 ciudades ejecuta código en el edge. Cloudflare opera con 100% energía renovable y su modelo serverless elimina el 95% de tiempo de servidor ocioso.', impact: '↓ 95% tiempo ocioso de servidores', color: '#3b82f6', url: 'https://www.cloudflare.com/impact/' }
+    ]
+  },
+  cc_carbon: {
+    label: 'Carbon-Aware\nComputing', pillar: 'cc', type: 'child', emoji: '🌱', parent: 'root_cc',
+    color: '#3b82f6', bg: '#0c1a3a',
+    tag: 'Cloud Computing · Innovación', tagColor: '#3b82f6', tagBg: '#0c1a3a',
+    desc: 'El Carbon-Aware Computing desplaza cargas de trabajo al momento del día y la región geográfica donde la red eléctrica es más limpia. Cuando hay exceso de energía solar o eólica, se procesan tareas diferibles (backups, entrenamientos de ML). Es el "modo nocturno" del cómputo para el planeta.',
+    concepts: ['Carbon Intensity API (electricityMap)', 'Carga temporal diferible', 'Carga geográfica desplazable', 'SDK Carbon Aware (Green Software)', 'Integración con APIs de red eléctrica', 'SCI (Software Carbon Intensity)'],
+    stats: [{ n: '↓48%', l: 'Emisiones tareas diferibles' }, { n: '24h', l: 'Ventana de optimización' }, { n: '2023', l: 'Estándar ISO en desarrollo' }],
+    cases: [
+      { logo: '🍎', name: 'Apple Carbon Intelligent Charging', year: '2022', desc: 'macOS y iOS posponen cargas de batería y tareas intensivas (actualizaciones, backups) a horas de menor intensidad de carbono en la red local. Activado por defecto en 2B+ dispositivos.', impact: '↓ 48% emisiones por carga de iCloud', color: '#3b82f6', url: 'https://support.apple.com/guide/mac-help/what-is-clean-energy-charging' }
+    ]
+  },
+  cc_aws: {
+    label: 'AWS\nNet-Zero 2040', pillar: 'cc', type: 'child', emoji: '🏗️', parent: 'root_cc',
+    color: '#3b82f6', bg: '#0c1a3a',
+    tag: 'Cloud Computing · Caso de Estudio', tagColor: '#3b82f6', tagBg: '#0c1a3a',
+    desc: 'Amazon Web Services logró 100% de energía renovable para sus operaciones globales en 2025, 5 años antes de lo prometido. El compromiso incluye Net-Zero para 2040 y el lanzamiento de 500+ proyectos de energía renovable en 29 países.',
+    concepts: ['100% renovable en 2025 (meta 2030)', 'Power Purchase Agreements (PPA)', 'AWS Clean Energy Accelerator', 'Refrigeración con agua reciclada', 'Arm (Graviton): 60% menos energía', 'The Climate Pledge (2040)'],
+    stats: [{ n: '100%', l: 'Renovable logrado 2025' }, { n: '2040', l: 'Meta Net-Zero' }, { n: '500+', l: 'Proyectos renovables' }],
+    cases: [
+      { logo: '🔶', name: 'AWS Graviton 4', year: '2024', desc: 'Chip ARM de AWS consume 60% menos energía que x86 equivalente. Disponible en EC2 y Fargate, permite a los clientes reducir su huella de carbono sin cambiar código.', impact: '↓ 60% consumo energético por instancia', color: '#3b82f6', url: 'https://aws.amazon.com/ec2/graviton/' }
+    ]
+  },
+
+  // ═══ NODOS HIJO — IA ═══
+  ai_tinyml: {
+    label: 'TinyML\nEdge AI', pillar: 'ai', type: 'child', emoji: '🔬', parent: 'root_ai',
+    color: '#f97316', bg: '#2a0d00',
+    tag: 'IA Sustentable · Tecnología', tagColor: '#f97316', tagBg: '#2a0d00',
+    desc: 'TinyML lleva modelos de Machine Learning a microcontroladores con <1MB de RAM y consumo de μW. Permite inferencia local sin conectividad, sin latencia y sin consumo de cloud. Es crítico para IoT industrial, agricultura de precisión y monitoreo ambiental a escala masiva.',
+    concepts: ['Cuantización INT8/INT4', 'Pruning (poda de redes)', 'Knowledge Distillation', 'MCU con NPU integrado', 'Arduino Nano BLE Sense', 'Edge Impulse Studio'],
+    stats: [{ n: '<1MB', l: 'RAM requerida' }, { n: 'μW', l: 'Consumo energético' }, { n: '∞', l: 'Sin conexión a internet' }],
+    cases: [
+      { logo: '🌾', name: 'John Deere Precision AI', year: '2022–2024', desc: 'Sistema "See & Spray Ultimate" usa visión computacional en el tractor para detectar malezas vs cultivo en tiempo real. Reduce herbicidas hasta 66% sin reducir rendimiento.', impact: '↓ 66% herbicidas · ↑ 15% rendimiento', color: '#f97316', url: 'https://www.deere.com/en/technology-products/precision-ag-technology/see-spray/' }
+    ]
+  },
+  ai_deepmind: {
+    label: 'Google\nDeepMind', pillar: 'ai', type: 'child', emoji: '🧠', parent: 'root_ai',
+    color: '#f97316', bg: '#2a0d00',
+    tag: 'IA Sustentable · Caso de Estudio', tagColor: '#f97316', tagBg: '#2a0d00',
+    desc: 'DeepMind desarrolló un sistema de IA que controla la refrigeración de los data centers de Google con más de 120 variables simultáneas. El agente de aprendizaje por refuerzo opera en modo autónomo, adaptándose a las condiciones en tiempo real y superando el rendimiento humano consistentemente.',
+    concepts: ['Deep Reinforcement Learning', 'Control de 120+ variables simultáneas', 'Modo autónomo con supervisión humana', 'Integración con BMS existentes', 'Generalización a nuevos centros', 'Safety constraints en producción'],
+    stats: [{ n: '40%', l: 'Reducción energía cooling' }, { n: '15%', l: 'Reducción consumo total DC' }, { n: '120+', l: 'Variables controladas' }],
+    cases: [
+      { logo: '🧊', name: 'AlphaControl DC Cooling', year: '2016–2024', desc: 'Sistema de control de cooling de DeepMind ahorra 40% de energía de refrigeración. Desde 2019 opera en modo completamente autónomo en múltiples centros de datos de Google en 3 continentes.', impact: '↓ 40% cooling · ↓ 15% PUE total', color: '#f97316', url: 'https://deepmind.google/technologies/alphafold/' }
+    ]
+  },
+  ai_amp: {
+    label: 'AMP\nRobotics', pillar: 'ai', type: 'child', emoji: '🦾', parent: 'root_ai',
+    color: '#f97316', bg: '#2a0d00',
+    tag: 'IA Sustentable · Caso de Estudio', tagColor: '#f97316', tagBg: '#2a0d00',
+    desc: 'AMP Robotics revolucionó el reciclaje con robots autónomos que clasifican residuos usando visión computacional e IA. Sus robots AMP Cortex clasifican 80 objetos por minuto con 95% de precisión, superando ampliamente la capacidad humana y haciendo el reciclaje económicamente viable.',
+    concepts: ['Visión computacional multiespectral', 'Clasificación por material/color/forma', 'Brazo robótico de alta velocidad', 'Aprendizaje continuo en producción', 'Red de datos compartida entre instalaciones', 'ROI < 3 años'],
+    stats: [{ n: '95%', l: 'Precisión clasificación' }, { n: '80/min', l: 'Objetos clasificados' }, { n: '50+', l: 'Instalaciones activas' }],
+    cases: [
+      { logo: '♻️', name: 'AMP Cortex v4', year: '2024', desc: 'Cuarta generación del robot clasificador. Reconoce 50+ tipos de materiales incluyendo plásticos multi-capa. Opera 24/7 sin fatiga. Instalado en República de Irlanda para alcanzar meta de 70% reciclaje.', impact: '3x más rápido que clasificación manual', color: '#f97316', url: 'https://www.amprobotics.com/solutions' }
+    ]
+  },
+  ai_energia: {
+    label: 'Optimización\nEnergética', pillar: 'ai', type: 'child', emoji: '⚡', parent: 'root_ai',
+    color: '#f97316', bg: '#2a0d00',
+    tag: 'IA Sustentable · Aplicación', tagColor: '#f97316', tagBg: '#2a0d00',
+    desc: 'La IA optimiza redes eléctricas, edificios y procesos industriales para minimizar el consumo energético. Algoritmos de predicción de demanda, control adaptativo de HVAC y gestión de baterías de almacenamiento permiten integrar mayor porcentaje de energías renovables en las redes.',
+    concepts: ['Predicción de demanda eléctrica', 'Control HVAC adaptativo', 'Gestión de baterías de almacenamiento', 'Virtual Power Plants (VPP)', 'Demand Response automatizado', 'Digital twins de edificios'],
+    stats: [{ n: '↓30%', l: 'Consumo edificios smart' }, { n: '↑40%', l: 'Integración renovables' }, { n: '$1T', l: 'Mercado IA energética 2030' }],
+    cases: [
+      { logo: '🏙️', name: 'Siemens Xcelerator Building', year: '2022–2025', desc: 'Plataforma de gemelos digitales para edificios. Combina IoT, IA y Cloud para gestionar consumo energético, mantenimiento predictivo y huella de carbono de activos inmobiliarios.', impact: '↓ 30% consumo energético edificios', color: '#f97316', url: 'https://xcelerator.siemens.com' }
+    ]
+  },
+
+  // ═══ NODOS HIJO — SINERGIAS ═══
+  sy_iot: {
+    label: 'IoT +\nBlockchain', pillar: 'sy', type: 'child', emoji: '🔗', parent: 'root_sy',
+    color: '#a855f7', bg: '#1e0a3a',
+    tag: 'Sinergias · Tecnología Convergente', tagColor: '#a855f7', tagBg: '#1e0a3a',
+    desc: 'La combinación de sensores IoT y blockchain crea cadenas de suministro completamente transparentes y auditables. Cada material puede ser rastreado desde la extracción hasta el reciclaje, verificando claims de sostenibilidad y habilitando mercados de materiales reciclados con precio diferencial.',
+    concepts: ['Sensores IoT en toda la cadena', 'Smart contracts para trazabilidad', 'NFT de certificación de materiales', 'Interoperabilidad de datos (GS1)', 'Blockchain permisionada (Hyperledger)', 'Integración con ERP existentes'],
+    stats: [{ n: '100%', l: 'Auditoría inmutable' }, { n: '<1s', l: 'Verificación de origen' }, { n: '$45B', l: 'Mercado trazabilidad 2025' }],
+    cases: [
+      { logo: '👕', name: 'TextileGenesis (H&M Group)', year: '2021–2024', desc: 'Plataforma blockchain para trazabilidad de fibras textiles sostenibles. Conecta granjas de algodón orgánico con fábricas y tiendas H&M. Evita el greenwashing verificando claims de sostenibilidad.', impact: 'Trazabilidad total en 40 países', color: '#a855f7', url: 'https://textilegenesis.com' }
+    ]
+  },
+  sy_5g: {
+    label: '5G +\nEdge Computing', pillar: 'sy', type: 'child', emoji: '📡', parent: 'root_sy',
+    color: '#a855f7', bg: '#1e0a3a',
+    tag: 'Sinergias · Infraestructura', tagColor: '#a855f7', tagBg: '#1e0a3a',
+    desc: '5G combinado con Edge Computing habilita aplicaciones industriales imposibles con tecnologías anteriores: control robótico en tiempo real, vehículos autónomos, y clasificación de residuos con IA que no puede tolerar la latencia del cloud centralizado.',
+    concepts: ['Latencia <1ms (5G Ultra-Reliable)', 'Network Slicing para prioridades', 'MEC (Multi-access Edge Computing)', 'URLLC para control industrial', 'Private 5G en plantas circulares', 'Integración con OT/IT convergida'],
+    stats: [{ n: '<1ms', l: 'Latencia Ultra-Reliable 5G' }, { n: '10Gbps', l: 'Velocidad pico 5G' }, { n: '1M/km²', l: 'Densidad dispositivos IoT' }],
+    cases: [
+      { logo: '🏭', name: 'BMW Private 5G Leipzig', year: '2023', desc: 'Red 5G privada en planta de producción. Vehículos guiados autónomos (AGV) coordinan el flujo de materiales reciclados con <5ms de latencia. Cero cables en planta de ensamble.', impact: 'AGV 100% inalámbricos · ↑ 25% eficiencia', color: '#a855f7', url: 'https://www.press.bmwgroup.com' }
+    ]
+  },
+  sy_cuantico: {
+    label: 'Computación\nCuántica', pillar: 'sy', type: 'child', emoji: '⚛️', parent: 'root_sy',
+    color: '#a855f7', bg: '#1e0a3a',
+    tag: 'Sinergias · Tecnología Emergente', tagColor: '#a855f7', tagBg: '#1e0a3a',
+    desc: 'La computación cuántica aborda problemas de optimización NP-hard que son intratables para computadoras clásicas: rutas de logística con miles de variables, diseño de nuevos materiales reciclables y simulación de reacciones químicas para procesos de reciclaje más eficientes.',
+    concepts: ['Quantum Annealing (D-Wave)', 'Algoritmo QAOA para optimización', 'Quantum chemistry (materiales)', 'Hybrid classical-quantum workflows', 'QML (Quantum Machine Learning)', 'Ventaja cuántica práctica en logística'],
+    stats: [{ n: '4000+', l: 'Qubits D-Wave Advantage' }, { n: '↓12%', l: 'Reducción km en logística' }, { n: '2025', l: 'Ventaja práctica en optimización' }],
+    cases: [
+      { logo: '📦', name: 'DHL + D-Wave Quantum Routes', year: '2023', desc: 'Optimización cuántica de rutas de última milla para paquetes de devolución (reverse logistics). 1,500+ rutas optimizadas simultáneamente en Europa con D-Wave Advantage.', impact: '↓ 12% km totales · ↓ 20% emisiones', color: '#a855f7', url: 'https://www.dhl.com/quantum' }
+    ]
+  },
+  sy_gemelos: {
+    label: 'Gemelos\nDigitales', pillar: 'sy', type: 'child', emoji: '🔮', parent: 'root_sy',
+    color: '#a855f7', bg: '#1e0a3a',
+    tag: 'Sinergias · Convergencia Digital', tagColor: '#a855f7', tagBg: '#1e0a3a',
+    desc: 'Los gemelos digitales son réplicas virtuales exactas de sistemas físicos (fábricas, ciudades, cadenas de suministro) que se actualizan en tiempo real con datos IoT. Permiten simular y optimizar escenarios de circularidad antes de implementarlos, reduciendo el riesgo y maximizando el impacto.',
+    concepts: ['Sincronización en tiempo real con IoT', 'Simulación de escenarios circulares', 'Predicción de flujos de materiales', 'Optimización de mantenimiento', 'City-scale digital twins', 'Integración BIM + GIS + ERP'],
+    stats: [{ n: '↓25%', l: 'Tiempo desarrollo producto' }, { n: '↑40%', l: 'Eficiencia mantenimiento' }, { n: '$48B', l: 'Mercado digital twins 2026' }],
+    cases: [
+      { logo: '🌆', name: 'Singapore Virtual Singapore', year: '2020–2024', desc: 'Gemelo digital 3D completo de toda la ciudad de Singapur con datos IoT en tiempo real. Simula flujos de residuos, energía y agua. Usado para planificación urbana circular y optimización de rutas de recolección.', impact: 'Primera ciudad con gemelo digital nacional', color: '#a855f7', url: 'https://www.nrf.gov.sg/programmes/virtual-singapore' }
+    ]
+  }
+};
+
+// ─────────────────────────────────────────────
+//  BUILD CYTOSCAPE ELEMENTS
+// ─────────────────────────────────────────────
+const elements = [];
+let showSynergies = false;
+
+Object.entries(NODES_DATA).forEach(([id, d]) => {
+  const isRoot = d.type === 'root';
+  elements.push({
+    data: {
+      id,
+      label: d.label,
+      pillar: d.pillar,
+      type: d.type,
+      color: d.color,
+      emoji: d.emoji,
+      parent_node: d.parent || null,
+    },
+    classes: [d.type, d.pillar, isRoot ? 'visible' : 'hidden'].join(' ')
+  });
+  if (d.parent) {
+    elements.push({
+      data: {
+        id: `e_${d.parent}_${id}`,
+        source: d.parent,
+        target: id,
+        type: 'child',
+        strength: 2
+      },
+      classes: 'edge-child hidden'
+    });
+  }
+});
+
+// Sinergia edges (between pillars)
+const synergyEdges = [
+  { s: 'root_ai', t: 'root_cc', w: 6, label: 'IA optimiza Cloud', type: 'strong' },
+  { s: 'root_cc', t: 'root_ec', w: 5, label: 'Cloud habilita EC', type: 'strong' },
+  { s: 'root_ai', t: 'root_ec', w: 4, label: 'IA cierra ciclos', type: 'medium' },
+  { s: 'root_sy', t: 'root_ai', w: 5, label: 'Integración IA', type: 'strong' },
+  { s: 'root_sy', t: 'root_cc', w: 4, label: 'Plataformas cloud', type: 'medium' },
+  { s: 'root_sy', t: 'root_ec', w: 4, label: 'Circularidad digital', type: 'medium' },
+  { s: 'ai_deepmind', t: 'cc_pue', w: 5, label: 'IA reduce PUE', type: 'strong' },
+  { s: 'cc_carbon', t: 'ai_energia', w: 4, label: 'Carbon-aware + IA', type: 'medium' },
+  { s: 'sy_iot', t: 'ec_pasaporte', w: 4, label: 'IoT + Pasaportes', type: 'medium' },
+  { s: 'sy_gemelos', t: 'ai_energia', w: 3, label: 'Gemelos + IA energía', type: 'light' },
+  { s: 'sy_5g', t: 'ai_amp', w: 3, label: '5G + Robots', type: 'light' },
+  { s: 'ec_paas', t: 'cc_serverless', w: 3, label: 'Servitización cloud-native', type: 'light' },
+];
+synergyEdges.forEach((e, i) => {
+  elements.push({
+    data: { id: `syn_${i}`, source: e.s, target: e.t, width: e.w, label: e.label, type: 'synergy' },
+    classes: `edge-synergy ${e.type} synergy-hidden`
+  });
+});
+
+// ─────────────────────────────────────────────
+//  CYTOSCAPE INIT
+// ─────────────────────────────────────────────
+let cy;
+
+function initCy() {
+  cy = cytoscape({
+    container: document.getElementById('cy'),
+    elements,
+    style: [
+      // Root nodes
+      {
+        selector: 'node.root',
+        style: {
+          'width': 110, 'height': 110,
+          'background-color': 'data(color)',
+          'background-opacity': 0.18,
+          'border-color': 'data(color)',
+          'border-width': 2.5,
+          'border-opacity': 0.9,
+          'label': 'data(label)',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'color': '#f1f5f9',
+          'font-size': 11,
+          'font-weight': '600',
+          'font-family': 'Space Grotesk, Inter, sans-serif',
+          'text-wrap': 'wrap',
+          'text-max-width': 90,
+          'line-height': 1.4,
+          'transition-property': 'background-opacity, border-width, width, height',
+          'transition-duration': '0.2s',
+          'cursor': 'pointer',
+          'text-outline-color': '#0a0f1e',
+          'text-outline-width': 2,
+        }
+      },
+      // Child nodes
+      {
+        selector: 'node.child',
+        style: {
+          'width': 70, 'height': 70,
+          'background-color': 'data(color)',
+          'background-opacity': 0.12,
+          'border-color': 'data(color)',
+          'border-width': 1.8,
+          'border-opacity': 0.7,
+          'label': 'data(label)',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'color': '#e2e8f0',
+          'font-size': 9,
+          'font-weight': '500',
+          'font-family': 'Inter, sans-serif',
+          'text-wrap': 'wrap',
+          'text-max-width': 65,
+          'line-height': 1.3,
+          'cursor': 'pointer',
+          'text-outline-color': '#0a0f1e',
+          'text-outline-width': 1.5,
+        }
+      },
+      // Hidden
+      { selector: '.hidden', style: { 'display': 'none' } },
+      { selector: '.synergy-hidden', style: { 'display': 'none' } },
+      // Hover
+      {
+        selector: 'node:active, node.hover',
+        style: { 'background-opacity': 0.4, 'border-width': 4, 'overlay-opacity': 0 }
+      },
+      // Child edges
+      {
+        selector: 'edge.edge-child',
+        style: {
+          'width': 1.5,
+          'line-color': 'data(color)',
+          'line-style': 'dashed',
+          'line-dash-pattern': [5, 4],
+          'opacity': 0.4,
+          'curve-style': 'bezier',
+          'target-arrow-shape': 'none',
+        }
+      },
+      // Synergy edges
+      {
+        selector: 'edge.edge-synergy',
+        style: {
+          'width': 'data(width)',
+          'curve-style': 'bezier',
+          'target-arrow-shape': 'none',
+          'opacity': 0.55,
+          'label': '',
+        }
+      },
+      {
+        selector: 'edge.edge-synergy.strong',
+        style: { 'line-color': '#a78bfa' }
+      },
+      {
+        selector: 'edge.edge-synergy.medium',
+        style: { 'line-color': '#60a5fa' }
+      },
+      {
+        selector: 'edge.edge-synergy.light',
+        style: { 'line-color': '#6ee7b7' }
+      },
+    ],
+    layout: {
+      name: 'circle',
+      radius: 200,
+      startAngle: Math.PI / 4,
+      fit: true,
+      padding: 50,
+    },
+    userZoomingEnabled: true,
+    userPanningEnabled: true,
+    minZoom: 0.3,
+    maxZoom: 3,
+    wheelSensitivity: 0.2,
+  });
+
+  // Position child nodes relative to parents after layout
+  positionChildren();
+
+  // Events
+  cy.on('tap', 'node', function(e) {
+    const node = e.target;
+    const id = node.id();
+    const data = NODES_DATA[id];
+    if (data) openModal(data, id);
+    if (data && data.type === 'root') toggleChildren(id);
+  });
+
+  cy.on('mouseover', 'node', function(e) {
+    const node = e.target;
+    const d = NODES_DATA[node.id()];
+    if (!d) return;
+    const tt = document.getElementById('tooltip');
+    tt.innerHTML = `<b>${d.tag}</b><br><span style="color:#94a3b8;font-size:0.68rem">${d.desc.slice(0,90)}…</span>`;
+    tt.classList.add('show');
+  });
+  cy.on('mouseout', 'node', () => {
+    document.getElementById('tooltip').classList.remove('show');
+  });
+  cy.on('mousemove', e => {
+    const tt = document.getElementById('tooltip');
+    tt.style.left = (e.originalEvent.clientX + 14) + 'px';
+    tt.style.top  = (e.originalEvent.clientY - 40) + 'px';
+  });
+
+  document.getElementById('loading').style.display = 'none';
+}
+
+function positionChildren() {
+  // Group children by parent and spread them around the parent node
+  const childGroups = {};
+  Object.entries(NODES_DATA).forEach(([id, d]) => {
+    if (d.parent) {
+      if (!childGroups[d.parent]) childGroups[d.parent] = [];
+      childGroups[d.parent].push(id);
+    }
+  });
+  Object.entries(childGroups).forEach(([parentId, children]) => {
+    const parentNode = cy.getElementById(parentId);
+    const pPos = parentNode.position();
+    const cx = cy.width() / 2, cy2 = cy.height() / 2;
+    // Angle away from center
+    const angle = Math.atan2(pPos.y - cy2, pPos.x - cx);
+    const radius = 160;
+    const spread = Math.PI * 0.7;
+    children.forEach((cId, i) => {
+      const frac = children.length === 1 ? 0.5 : i / (children.length - 1);
+      const a = angle - spread / 2 + frac * spread;
+      cy.getElementById(cId).position({
+        x: pPos.x + Math.cos(a) * radius,
+        y: pPos.y + Math.sin(a) * radius,
+      });
+    });
+  });
+}
+
+// ─────────────────────────────────────────────
+//  INTERACTIONS
+// ─────────────────────────────────────────────
+const expandedPillars = new Set();
+
+function toggleChildren(rootId) {
+  const pillar = NODES_DATA[rootId]?.pillar;
+  if (!pillar) return;
+  const isExpanded = expandedPillars.has(rootId);
+  if (isExpanded) {
+    // Collapse
+    cy.nodes('.child.' + pillar).addClass('hidden');
+    cy.edges('.edge-child').filter(e => {
+      const src = NODES_DATA[e.data('source')];
+      const tgt = NODES_DATA[e.data('target')];
+      return (src?.pillar === pillar || tgt?.pillar === pillar);
+    }).addClass('hidden');
+    expandedPillars.delete(rootId);
+  } else {
+    // Expand
+    cy.nodes('.child.' + pillar).removeClass('hidden');
+    cy.edges('.edge-child').filter(e => {
+      const tgt = NODES_DATA[e.data('target')];
+      return tgt?.pillar === pillar;
+    }).removeClass('hidden');
+    expandedPillars.add(rootId);
+    setTimeout(() => positionChildren(), 10);
+  }
+}
+
+function expandAll() {
+  cy.nodes('.child').removeClass('hidden');
+  cy.edges('.edge-child').removeClass('hidden');
+  Object.keys(NODES_DATA).filter(id => NODES_DATA[id].type === 'root').forEach(id => expandedPillars.add(id));
+  setTimeout(() => positionChildren(), 10);
+}
+
+function collapseAll() {
+  cy.nodes('.child').addClass('hidden');
+  cy.edges('.edge-child').addClass('hidden');
+  expandedPillars.clear();
+}
+
+function fitGraph() {
+  cy.fit(undefined, 50);
+}
+
+function toggleSynergies() {
+  showSynergies = !showSynergies;
+  if (showSynergies) {
+    cy.edges('.edge-synergy').removeClass('synergy-hidden');
+    document.getElementById('btn-synergies').classList.add('active');
+  } else {
+    cy.edges('.edge-synergy').addClass('synergy-hidden');
+    document.getElementById('btn-synergies').classList.remove('active');
+  }
+}
+
+function focusPillar(pillar) {
+  const rootId = 'root_' + pillar;
+  if (!expandedPillars.has(rootId)) toggleChildren(rootId);
+  const node = cy.getElementById(rootId);
+  cy.animate({ center: { eles: node }, zoom: 1.4 }, { duration: 500 });
+}
+
+// ─────────────────────────────────────────────
+//  MODAL
+// ─────────────────────────────────────────────
+function openModal(d, id) {
+  document.getElementById('modal-overlay').classList.add('open');
+  document.getElementById('modal-icon').textContent = d.emoji;
+  document.getElementById('modal-icon').style.background = d.color + '22';
+  document.getElementById('modal-tag').textContent = d.tag;
+  document.getElementById('modal-tag').style.background = d.tagBg || '#111';
+  document.getElementById('modal-tag').style.color = d.tagColor || '#fff';
+  document.getElementById('modal-title').textContent = d.label.replace(/\n/g, ' ');
+
+  const body = document.getElementById('modal-body');
+  body.innerHTML = '';
+
+  // Description
+  const desc = document.createElement('p');
+  desc.className = 'modal-desc';
+  desc.textContent = d.desc;
+  body.appendChild(desc);
+
+  // Stats
+  if (d.stats?.length) {
+    const st = document.createElement('div');
+    st.className = 'modal-section-title';
+    st.textContent = 'Datos de Impacto';
+    body.appendChild(st);
+    const sg = document.createElement('div');
+    sg.className = 'modal-stats';
+    d.stats.forEach(s => {
+      sg.innerHTML += `<div class="stat-box">
+        <span class="stat-number" style="color:${d.color}">${s.n}</span>
+        <span class="stat-label">${s.l}</span>
+      </div>`;
+    });
+    body.appendChild(sg);
+  }
+
+  // Concepts
+  if (d.concepts?.length) {
+    const ct = document.createElement('div');
+    ct.className = 'modal-section-title';
+    ct.textContent = 'Conceptos Clave';
+    body.appendChild(ct);
+    const cw = document.createElement('div');
+    cw.className = 'modal-tags-wrap';
+    d.concepts.forEach(c => {
+      cw.innerHTML += `<span class="chip" style="color:${d.color};border-color:${d.color}40;background:${d.color}12">${c}</span>`;
+    });
+    body.appendChild(cw);
+  }
+
+  // Cases
+  if (d.cases?.length) {
+    const xt = document.createElement('div');
+    xt.className = 'modal-section-title';
+    xt.style.marginTop = '18px';
+    xt.textContent = 'Casos de Estudio · 2020–2025';
+    body.appendChild(xt);
+    const xw = document.createElement('div');
+    xw.className = 'modal-cases';
+    d.cases.forEach(c => {
+      xw.innerHTML += `<div class="case-card">
+        <div class="case-card-top">
+          <span class="case-logo">${c.logo}</span>
+          <span class="case-name">${c.name}</span>
+          <span class="case-year">${c.year}</span>
+        </div>
+        <div class="case-desc">${c.desc}</div>
+        <div class="case-impact" style="color:${c.color}">📈 ${c.impact}</div>
+        <a class="case-link" style="color:${c.color}" href="${c.url}" target="_blank" rel="noopener">🔗 Ver fuente oficial →</a>
+      </div>`;
+    });
+    body.appendChild(xw);
+  }
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function closeModalIfOverlay(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ─────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────
+window.addEventListener('load', () => {
+  setTimeout(initCy, 100);
+});
+</script>
+</body>
+</html>
