@@ -799,31 +799,31 @@ function secTitle(txt) {
   s.textContent = txt; return s;
 }
 
-// Listener para cuando haces clic en cualquier nodo
+// 1. Asegúrate de que los nodos hijos estén ocultos al iniciar
+cy.nodes('[?parent]').hide(); 
+
+// 2. Evento de clic mejorado
 cy.on('tap', 'node', function(evt) {
     var node = evt.target;
     
-    // 1. Lógica para expandir nodos hijos automáticamente
-    // Si tienes nodos hijos ocultos, muéstralos al hacer clic en el padre
-    var children = node.successors(); 
-    children.show();
+    // Si el nodo tiene hijos, los mostramos
+    var children = node.successors();
     
-    // 2. Abrir el modal con la información del nodo
+    if (children.length > 0) {
+        // Hacemos visibles a los hijos
+        children.show();
+        
+        // RECALCULAMOS EL LAYOUT para que los hijos se acomoden
+        cy.layout({
+            name: 'cose',
+            animate: true,
+            animationDuration: 500
+        }).run();
+    }
+    
+    // 3. Abrimos el modal con la información
     abrirModal(node.data());
 });
-
-function abrirModal(data) {
-    // Aquí accedes a los datos de tu JSON
-    document.getElementById('modal-titulo').innerText = data.label;
-    document.getElementById('modal-cuerpo').innerHTML = `
-        <p>${data.descripcion}</p>
-        <ul>
-            ${data.casos.map(c => `<li>${c}</li>`).join('')}
-        </ul>
-        <p>Impacto: ${data.impacto}</p>
-    `;
-    document.getElementById('miModal').style.display = 'block';
-}
 </script>
 </body>
 </html>
